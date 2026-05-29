@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
-import * as jwt from "jsonwebtoken";
+import jwt, { Secret, SignOptions } from "jsonwebtoken";
 import { accessTokenExpiry, accessTokenSecret } from "../types/env.js";
 
 const userSchema = new mongoose.Schema(
@@ -50,6 +50,16 @@ userSchema.methods.generateAccessToken = async function () {
     accessTokenSecret,
     { expiresIn: accessTokenExpiry }
   );
+};
+
+userSchema.methods.generateRefreshToken = async function () {
+  const refreshTokenSecret: Secret = process.env.REFRESH_TOKEN_SECRET as Secret;
+
+  const options: jwt.SignOptions = {
+    expiresIn: process.env.REFRESH_TOKEN_EXPIRY as SignOptions["expiresIn"],
+  };
+
+  return jwt.sign({ _id: this.id }, refreshTokenSecret, options);
 };
 
 export const User = mongoose.model("User", userSchema);
