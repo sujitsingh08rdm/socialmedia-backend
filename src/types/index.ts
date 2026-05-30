@@ -1,3 +1,4 @@
+import { JwtPayload } from "jsonwebtoken";
 import mongoose from "mongoose";
 import { Document } from "mongoose";
 
@@ -8,7 +9,9 @@ export interface IUser {
   profileImage?: string;
   posts: mongoose.Types.ObjectId[];
   password: string;
-  refreshToken?: String;
+  refreshToken?: string;
+  followers: mongoose.Types.ObjectId[];
+  following: mongoose.Types.ObjectId[];
 }
 
 export interface IUserMethods {
@@ -18,3 +21,9 @@ export interface IUserMethods {
 }
 
 export interface IUserDocument extends IUser, Document, IUserMethods {}
+
+export interface AccessTokenPayload extends JwtPayload {
+  _id: string;
+  user: string;
+  email: string;
+}

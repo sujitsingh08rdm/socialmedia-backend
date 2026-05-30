@@ -80,8 +80,8 @@ export const registerUser = async (req: Request, res: Response) => {
 
     return res
       .status(201)
-      .cookie("accessToken", accessToken)
-      .cookie("refreshToken", refreshToken)
+      .cookie("accessToken", accessToken, cookiesOptions)
+      .cookie("refreshToken", refreshToken, cookiesOptions)
       .json(
         new ApiResponse(
           201,
@@ -90,6 +90,109 @@ export const registerUser = async (req: Request, res: Response) => {
         )
       );
   } catch (error) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
+export const loginUser = async (req: Request, res: Response) => {
+  try {
+    console.log(req.body);
+
+    const { username, email, password } = req.body;
+
+    if (!username && !email) {
+      throw new ApiError(400, "Username or Email is required");
+    }
+
+    const user = await User.findOne({ $or: [{ username }, { email }] });
+
+    if (!user) {
+      throw new ApiError(404, "user not found");
+    }
+
+    const isPasswordValid = await user.isPasswordCorrect(password);
+
+    if (!isPasswordValid) {
+      throw new ApiError(401, "invalid credentials");
+    }
+
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+
+    user.refreshToken = refreshToken;
+    user.save({ validateBeforeSave: false });
+
+    const loggedInUser = await User.findById(user._id).select(
+      "-password -refreshToken"
+    );
+
+    const cookiesOptions = {
+      httpsOnly: true,
+      secure: true,
+    };
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, cookiesOptions)
+      .cookie("refreshToken", refreshToken, cookiesOptions)
+      .json(
+        new ApiResponse(
+          200,
+          { user: loggedInUser, accessToken, refreshToken },
+          "User Logged in Succesfully"
+        )
+      );
+  } catch (error: unknown) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
+export const logoutUser = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id;
+
+    // const user = await User.findById(userId);
+
+    // if (!user) {
+    //   throw new ApiError(400, "something went wrong while logout");
+    // }
+
+    // user.refreshToken = undefined;
+    // await user.save();
+
+    await User.findByIdAndUpdate(
+      userId,
+      { $unset: { refreshToken: 1 } },
+      {
+        new: true,
+      }
+    );
+
+    const cookieOptions = {
+      httpsOnly: true,
+      secure: true,
+    };
+
+    return res
+      .status(200)
+      .clearCookie("accessToken", cookieOptions)
+      .clearCookie("refreshToken", cookieOptions)
+      .json(new ApiResponse(200, null, "User logged out successfully"));
+  } catch (error: unknown) {
     console.log("Error", error);
 
     const statusCode = error instanceof ApiError ? error.statusCode : 500;
