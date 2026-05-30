@@ -5,8 +5,16 @@ import { uploadToCloudinary } from "../utils/cloudinary.js";
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
-    let profileImage;
-    console.log(req.file);
+    let profileImageLocalPath;
+    let profileImageUrl;
+
+    if (req.file?.path) {
+      profileImageLocalPath = req.file.path;
+      const cloudinaryResult = await uploadToCloudinary(profileImageLocalPath);
+      if (cloudinaryResult?.url) {
+        profileImageUrl = cloudinaryResult.url;
+      }
+    }
 
     return res
       .status(201)

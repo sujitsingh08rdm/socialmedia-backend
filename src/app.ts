@@ -6,12 +6,13 @@ import userRouter from "./routes/user.route.js";
 
 const app = express();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json()); // parse the json req body
+app.use(express.urlencoded({ extended: true })); //express.urlencoded() is middleware that parses URL-encoded form data sent from HTML forms.
 app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }));
 app.use(cookieParser());
 
 //routes
 app.use("/api/v1/test", testRoute);
 app.use("/api/v1/users", userRouter);
+
 export default app;

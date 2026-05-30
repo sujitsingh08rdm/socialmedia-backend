@@ -57,7 +57,7 @@ userSchema.methods.generateAccessToken = async function () {
 
 userSchema.methods.generateRefreshToken = async function () {
   const refreshTokenSecret: Secret = process.env.REFRESH_TOKEN_SECRET as Secret;
-
+  // jwt.sign(payload, secretOrPrivateKey, options); payload -> data we want to store in token.
   const options: jwt.SignOptions = {
     expiresIn: process.env.REFRESH_TOKEN_EXPIRY as SignOptions["expiresIn"],
   };
