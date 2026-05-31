@@ -2,4 +2,4 @@
 2. add gitignore prettierignore. create app.ts. to initialize hte basic application, create two models(post, user). in user model there will be some pre and methods. pre to hcekc if pass is changed if its changed we will hash it. methods to check if password is correct, to generateAccessToken, generateRefreshToken.
 3. Create a config for db. for connecting to DB. then export it and import in index.ts. in index.ts when connect to DB is success we  will  run the servers. Create utiliity function for APi REsponse and API Error. then create router/controller for test. and then finally for user. also create a multer middleware for file uploads and then cloudinary util function.
 4. Create a controller for Register and Login users. and Add routing. Now we will create a middleware for authentication.then added logout functionality. then a refrshToken router with ontroller. nad now create a controller for getCurrentUser. 
-5. Now work on changeCurrentPassword. then functionality to add Bio.
+5. Now work on changeCurrentPassword. then functionality to add Bio. then also image uploads

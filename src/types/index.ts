@@ -27,3 +27,12 @@ export interface AccessTokenPayload extends JwtPayload {
   user: string;
   email: string;
 }
+
+export interface IPost {
+  content: string;
+  image?: string;
+  owner: mongoose.Types.ObjectId;
+  comments: mongoose.Types.ObjectId;
+}
+
+export interface IPostDocument extends IUser, Document {}
