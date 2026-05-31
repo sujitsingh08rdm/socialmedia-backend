@@ -74,7 +74,7 @@ export const registerUser = async (req: Request, res: Response) => {
     );
 
     const cookiesOptions = {
-      httpsOnly: true,
+      httpOnly: true,
       secure: true,
     };
 
@@ -103,8 +103,6 @@ export const registerUser = async (req: Request, res: Response) => {
 
 export const loginUser = async (req: Request, res: Response) => {
   try {
-    console.log(req.body);
-
     const { username, email, password } = req.body;
 
     if (!username && !email) {
@@ -127,14 +125,14 @@ export const loginUser = async (req: Request, res: Response) => {
     const refreshToken = user.generateRefreshToken();
 
     user.refreshToken = refreshToken;
-    user.save({ validateBeforeSave: false });
+    await user.save({ validateBeforeSave: false });
 
     const loggedInUser = await User.findById(user._id).select(
       "-password -refreshToken"
     );
 
     const cookiesOptions = {
-      httpsOnly: true,
+      httpOnly: true,
       secure: true,
     };
 
@@ -165,6 +163,7 @@ export const logoutUser = async (req: Request, res: Response) => {
   try {
     const userId = req.user?._id;
 
+    // Alternate method
     // const user = await User.findById(userId);
 
     // if (!user) {
@@ -183,7 +182,7 @@ export const logoutUser = async (req: Request, res: Response) => {
     );
 
     const cookieOptions = {
-      httpsOnly: true,
+      httpOnly: true,
       secure: true,
     };
 
