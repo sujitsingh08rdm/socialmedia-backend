@@ -3,6 +3,8 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { uploadToCloudinary } from "../utils/cloudinary.js";
 import { User } from "../models/user.model.js";
+import jwt from "jsonwebtoken";
+import { AccessTokenPayload } from "../types/index.js";
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
@@ -191,6 +193,186 @@ export const logoutUser = async (req: Request, res: Response) => {
       .clearCookie("accessToken", cookieOptions)
       .clearCookie("refreshToken", cookieOptions)
       .json(new ApiResponse(200, null, "User logged out successfully"));
+  } catch (error: unknown) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
+export const getCurrentUser = async (req: Request, res: Response) => {
+  try {
+    const user = req.user;
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, user, "current User fetched successfully."));
+  } catch (error: unknown) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
+export const refreshAccessToken = async (req: Request, res: Response) => {
+  try {
+    const incomingRefreshToken =
+      req.cookies?.refreshToken ||
+      req.header("Authorization")?.replace("Bearer ", "");
+
+    if (!incomingRefreshToken) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET!
+    ) as AccessTokenPayload;
+
+    const userId = decodedToken?._id;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      throw new ApiError(401, "invalid  refresh-token");
+    }
+
+    if (incomingRefreshToken !== user?.refreshToken) {
+      throw new ApiError(401, "refreshTOken invalid/expired");
+    }
+
+    const newRefreshToken = user.generateRefreshToken();
+    const newAccessToken = user.generateAccessToken();
+
+    user.refreshToken = newRefreshToken;
+    user.save({ validateBeforeSave: false });
+
+    const cookieOptions = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    return res
+      .status(201)
+      .cookie("accessToken", newAccessToken, cookieOptions)
+      .cookie("refreshToken", newRefreshToken, cookieOptions)
+      .json(
+        new ApiResponse(
+          201,
+          { refreshToken: newRefreshToken, accessToken: newAccessToken },
+          "refresh token successfully created"
+        )
+      );
+  } catch (error: unknown) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
+export const changeCurrentPassword = async (req: Request, res: Response) => {
+  try {
+    const { oldPassword, newPassword, confirmNewPassword } = req.body;
+
+    if (newPassword !== confirmNewPassword) {
+      throw new ApiError(400, "new password and confirm password do not match");
+    }
+    const userId = req.user?._id;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      throw new ApiError(401, "Unauthorized request");
+    }
+
+    const isOldPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+
+    if (!isOldPasswordCorrect) {
+      throw new ApiError(401, "you old password do not match");
+    }
+
+    user.password = newPassword;
+
+    user.save({ validateBeforeSave: false });
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "Password successfully changed"));
+  } catch (error: unknown) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
+export const addBio = async (req: Request, res: Response) => {
+  try {
+    const { bio } = req.body;
+
+    if (!bio || bio === "") {
+      throw new ApiError(400, "Bio cannot be empty");
+    }
+
+    const userId = req.user?._id;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      throw new ApiError(401, "User not found");
+    }
+
+    user.bio = bio.trim();
+    user.save({ validateBeforeSave: false });
+
+    return res
+      .status(201)
+      .json(new ApiResponse(201, null, "bio added succesfully"));
+  } catch (error: unknown) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
+export const updateBio = async (req: Request, res: Response) => {
+  try {
+    const { updatedBio } = req.body;
+    if (!updatedBio || updatedBio === "") {
+      throw new ApiError(400, "updated bio cannot be empty");
+    }
+
+    const userId = req.user?._id;
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: { bio: updatedBio } },
+      { new: true }
+    );
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "Bio updated successfully"));
   } catch (error: unknown) {
     console.log("Error", error);
 
