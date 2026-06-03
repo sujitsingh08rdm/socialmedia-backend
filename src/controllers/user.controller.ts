@@ -438,3 +438,6 @@ export const updateProfileImage = async (req: Request, res: Response) => {
     return res.status(statusCode).json({ success: false, message, errors });
   }
 };
+
+// Create controller to get user profile details" It should container posts, followers and following.
+// Here we will use mongoDB Aggregation pipeline
