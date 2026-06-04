@@ -35,4 +35,4 @@ export interface IPost {
   comments: mongoose.Types.ObjectId;
 }
 
-export interface IPostDocument extends IUser, Document {}
+export interface IPostDocument extends IPost, Document {}

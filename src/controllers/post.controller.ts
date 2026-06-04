@@ -129,11 +129,110 @@ export const getAllPostsForHome = async (req: Request, res: Response) => {
       { $sort: { createdAt: -1 } },
     ]);
 
-    console.log(posts);
-
     return res
       .status(200)
       .json(new ApiResponse(200, posts, "post fetched successfully"));
+  } catch (error: unknown) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
+// Post details submited by an user --
+
+export const getUserPosts = async (req: Request, res: Response) => {
+  try {
+    const { username } = req.params;
+
+    if (!username) {
+      throw new ApiError(404, "username not found");
+    }
+
+    const posts = await Post.aggregate([
+      {
+        $lookup: {
+          from: "users",
+          localField: "owner",
+          foreignField: "_id",
+          as: "owner",
+        },
+      },
+      { $unwind: "$owner" },
+      { $match: { "owner.username": username } },
+      {
+        $lookup: {
+          from: "comments",
+          localField: "_id",
+          foreignField: "post",
+          as: "comments",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "comments.comment",
+          foreignField: "_id",
+          as: "commentUsers",
+        },
+      },
+      {
+        $addFields: {
+          comments: {
+            $map: {
+              input: "$comments",
+              as: "comment",
+              in: {
+                _id: "$$comment._id",
+                comment: "$$comment.comment",
+                createdAt: "$$comment.createdAt",
+                commentedBy: {
+                  $arrayElemAt: [
+                    {
+                      $filter: {
+                        input: "$commentUsers",
+                        as: "user",
+                        cond: { $eq: ["$$user._id", "$$comment.commentedBy"] },
+                      },
+                    },
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+          commentCount: { $size: "$comments" },
+        },
+      },
+      {
+        $project: {
+          content: 1,
+          image: 1,
+          createdAt: 1,
+          commentCount: 1,
+          owner: {
+            _id: "$owner._id",
+            username: "$owner.username",
+            profileImage: "$owner.profileImage",
+          },
+          comments: {
+            _id: 1,
+            comment: 1,
+            commentedBy: { _id: 1, username: 1, profileImage: 1 },
+          },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+    ]);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, posts, "users fetched sucessfully"));
   } catch (error: unknown) {
     console.log("Error", error);
 
