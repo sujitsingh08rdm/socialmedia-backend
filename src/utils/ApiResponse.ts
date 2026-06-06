@@ -9,7 +9,6 @@ class ApiResponse<T = unknown> {
     data: T,
     message: string
   ) {
-    // Since ApiError extends Error, you must call the parent (Error) constructor.
     this.statusCode = statusCode;
     this.data = data;
     this.message = message;

@@ -1,5 +1,6 @@
 1. first we have installed npm and depedency of proejcts. typescript, express, mongoose, multer, bcrypt, cookie-parser, cors, dotenv, express, jsonwebtoken.then its types for typescript. create script for running index./.
 2. add gitignore prettierignore. create app.ts. to initialize hte basic application, create two models(post, user). in user model there will be some pre and methods. pre to hcekc if pass is changed if its changed we will hash it. methods to check if password is correct, to generateAccessToken, generateRefreshToken.
 3. Create a config for db. for connecting to DB. then export it and import in index.ts. in index.ts when connect to DB is success we  will  run the servers. Create utiliity function for APi REsponse and API Error. then create router/controller for test. and then finally for user. also create a multer middleware for file uploads and then cloudinary util function.
-4. Create a controller for Register and Login users. and Add routing. Now we will create a middleware for authentication.
-5. 
+4. Create a controller for Register and Login users. and Add routing. Now we will create a middleware for authentication.then added logout functionality. then a refrshToken router with ontroller. and now create a controller for getCurrentUser. 
+5. Now work on changeCurrentPassword. then functionality to add Bio. then also image uploads. Then create a router for posts. Creat a post model and then a route and a controller. then create controller for creating post, then getting posts for homepage and then getUserPost. Now create a page for getting profile user data.
+6. Create a controller to follow a user.
