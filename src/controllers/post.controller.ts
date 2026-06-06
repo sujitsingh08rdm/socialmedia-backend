@@ -154,7 +154,6 @@ export const getAllPostsForHome = async (req: Request, res: Response) => {
 };
 
 // Post details submited by an user --
-
 export const getUserPosts = async (req: Request, res: Response) => {
   try {
     const { username } = req.params;
@@ -242,6 +241,89 @@ export const getUserPosts = async (req: Request, res: Response) => {
     return res
       .status(200)
       .json(new ApiResponse(200, posts, "users fetched sucessfully"));
+  } catch (error: unknown) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
+export const updatePostContent = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id;
+    const { postId } = req.params;
+    const { content } = req.body;
+
+    if (!content || content.trim() === "") {
+      throw new ApiError(400, "No Content Provided");
+    }
+
+    if (!userId) {
+      throw new ApiError(404, "User id not found");
+    }
+
+    if (!postId) {
+      throw new ApiError(404, "Post id not found");
+    }
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      throw new ApiError(404, "Post not found");
+    }
+
+    if (!post.owner.equals(userId)) {
+      throw new ApiError(401, "You are not authrizd to perform this action.");
+    }
+
+    post.content = content;
+    post.save({ validateBeforeSave: false });
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, post, "Post updated sucessfully."));
+  } catch (error: unknown) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
+export const deletePost = async (req: Request, res: Response) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user?._id;
+
+    if (!postId) {
+      throw new ApiError(404, "Post id not found");
+    }
+
+    if (!userId) {
+      throw new ApiError(404, "Suer id not Found");
+    }
+
+    const deletedPost = await Post.findByIdAndDelete({
+      _id: postId,
+      owner: userId,
+    });
+
+    if (!deletedPost) {
+      throw new ApiError(401, "You are not authorized to perform this action");
+    }
+
+    return res
+      .status(203)
+      .json(new ApiResponse(203, null, "post deleted successfully."));
   } catch (error: unknown) {
     console.log("Error", error);
 
