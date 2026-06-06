@@ -9,7 +9,6 @@ import { User } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 import { AccessTokenPayload } from "../types/index.js";
 import fs from "fs";
-import mongoose from "mongoose";
 
 export const registerUser = async (req: Request, res: Response) => {
   try {

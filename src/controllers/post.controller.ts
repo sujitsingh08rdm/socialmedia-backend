@@ -76,10 +76,19 @@ export const getAllPostsForHome = async (req: Request, res: Response) => {
           as: "comments",
         },
       },
+      // This is bug fix for above, we uncomment it lateer
+      // {
+      //   $lookup: {
+      //     from: "comments",
+      //     localField: "_id",
+      //     foreignField: "post",
+      //     as: "comments",
+      //   },
+      // },
       {
         $lookup: {
           from: "users",
-          localField: "comment.commentedBy",
+          localField: "comments.commentedBy",
           foreignField: "_id",
           as: "commentUsers",
         },
