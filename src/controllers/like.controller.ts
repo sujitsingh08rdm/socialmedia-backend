@@ -108,13 +108,7 @@ export const getUsersWhoLikedPost = async (req: Request, res: Response) => {
 
     return res
       .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          result[0].likedUsers,
-          "Liked users fetched successfully"
-        )
-      );
+      .json(new ApiResponse(200, result, "Liked users fetched successfully"));
   } catch (error: unknown) {
     const statusCode = error instanceof ApiError ? error.statusCode : 500;
 
