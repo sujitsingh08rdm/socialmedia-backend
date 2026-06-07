@@ -31,8 +31,6 @@ export const verifyJWT = async (
       throw new ApiError(401, "invalid user/access token");
     }
 
-    console.log(user);
-
     req.user = user;
     next();
   } catch (error: unknown) {

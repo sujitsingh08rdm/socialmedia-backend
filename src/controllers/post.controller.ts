@@ -46,6 +46,11 @@ export const createPost = async (req: Request, res: Response) => {
 // here i need to implement the mongoDB aggregation pipeline to get the comments
 export const getAllPostsForHome = async (req: Request, res: Response) => {
   try {
+    const userId = req.user?._id;
+    if (!userId) {
+      throw new ApiError(404, "userID not found");
+    }
+
     const posts = await Post.aggregate([
       {
         $lookup: {
@@ -134,6 +139,14 @@ export const getAllPostsForHome = async (req: Request, res: Response) => {
         },
       },
       { $addFields: { commentCount: { $size: "$comments" } } },
+      {
+        $addFields: {
+          likeCount: { $size: { $ifNull: ["$likes", []] } },
+          isLiked: {
+            $in: [userId, "$likes"],
+          },
+        },
+      },
       { $project: { commentUsers: 0, _v: 0 } },
       { $sort: { createdAt: -1 } },
     ]);
@@ -157,9 +170,14 @@ export const getAllPostsForHome = async (req: Request, res: Response) => {
 export const getUserPosts = async (req: Request, res: Response) => {
   try {
     const { username } = req.params;
+    const userId = req.user?._id;
 
     if (!username) {
       throw new ApiError(404, "username not found");
+    }
+
+    if (!userId) {
+      throw new ApiError(404, "userID not found");
     }
 
     const posts = await Post.aggregate([
@@ -215,6 +233,19 @@ export const getUserPosts = async (req: Request, res: Response) => {
             },
           },
           commentCount: { $size: "$comments" },
+          likeCount: { $size: { $ifNull: ["$likes", []] } },
+          isLiked: {
+            $in: [
+              userId,
+              {
+                $map: {
+                  input: { $ifNull: ["$likes", []] },
+                  as: "l",
+                  in: { $toString: "$$l" },
+                },
+              },
+            ],
+          },
         },
       },
       {
@@ -233,6 +264,9 @@ export const getUserPosts = async (req: Request, res: Response) => {
             comment: 1,
             commentedBy: { _id: 1, username: 1, profileImage: 1 },
           },
+          likeCount: 1,
+          isLiked: 1,
+          likes: 1,
         },
       },
       { $sort: { createdAt: -1 } },
