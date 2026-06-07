@@ -68,23 +68,23 @@ export const getAllPostsForHome = async (req: Request, res: Response) => {
           "owner._v": 0,
         },
       },
-      {
-        $lookup: {
-          from: "comments",
-          localField: "comments",
-          foreignField: "_id",
-          as: "comments",
-        },
-      },
-      // This is bug fix for above, we uncomment it lateer
       // {
       //   $lookup: {
       //     from: "comments",
-      //     localField: "_id",
-      //     foreignField: "post",
+      //     localField: "comments",
+      //     foreignField: "_id",
       //     as: "comments",
       //   },
       // },
+      // This is bug fix for above, we uncomment it lateer
+      {
+        $lookup: {
+          from: "comments",
+          localField: "_id",
+          foreignField: "post",
+          as: "comments",
+        },
+      },
       {
         $lookup: {
           from: "users",
@@ -184,7 +184,7 @@ export const getUserPosts = async (req: Request, res: Response) => {
       {
         $lookup: {
           from: "users",
-          localField: "comments.comment",
+          localField: "comments.commentedBy",
           foreignField: "_id",
           as: "commentUsers",
         },

@@ -1,4 +1,5 @@
-import mongoose from "mongoose";
+import mongoose, { Model } from "mongoose";
+import { ICommentDocument } from "../types/index.js";
 
 const commentSchema = new mongoose.Schema(
   {

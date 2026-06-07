@@ -4,3 +4,4 @@
 4. Create a controller for Register and Login users. and Add routing. Now we will create a middleware for authentication.then added logout functionality. then a refrshToken router with ontroller. and now create a controller for getCurrentUser. 
 5. Now work on changeCurrentPassword. then functionality to add Bio. then also image uploads. Then create a router for posts. Creat a post model and then a route and a controller. then create controller for creating post, then getting posts for homepage and then getUserPost. Now create a page for getting profile user data.
 6. Create a controller to follow a user. and also unfollow user. then add it to router. Bow create a controller to updatePost content. the delete post.
+7. 
