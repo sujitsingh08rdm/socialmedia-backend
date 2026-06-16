@@ -30,6 +30,9 @@ export const createPost = async (req: Request, res: Response) => {
       post = await Post.create({ content, image: image.url, owner: userId });
     }
 
+    // user.posts.push(post._id);
+    // await user.save({ validateBeforeSave: false });
+
     return res.json(new ApiResponse(200, post, "post created successfully"));
   } catch (error: unknown) {
     console.log("Error", error);
