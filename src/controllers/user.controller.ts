@@ -467,7 +467,7 @@ export const getUserProfileData = async (req: Request, res: Response) => {
           username: 1,
           email: 1,
           bio: 1,
-          profileImageUrl: 1,
+          profileImage: 1,
           postCount: { $size: "$posts" },
           followersCount: { $size: "$followers" },
           followingCount: { $size: "$following" },
