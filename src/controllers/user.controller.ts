@@ -446,7 +446,7 @@ export const updateProfileImage = async (req: Request, res: Response) => {
 export const getUserProfileData = async (req: Request, res: Response) => {
   try {
     const { username } = req.params;
-    console.log(username);
+    const loggedInUserId = req.user?._id;
 
     if (!username) {
       throw new ApiError(401, "username not found");
@@ -463,6 +463,13 @@ export const getUserProfileData = async (req: Request, res: Response) => {
         },
       },
       {
+        $addFields: {
+          isFollowing: {
+            $in: [loggedInUserId, "$followers"],
+          },
+        },
+      },
+      {
         $project: {
           username: 1,
           email: 1,
@@ -471,6 +478,10 @@ export const getUserProfileData = async (req: Request, res: Response) => {
           postCount: { $size: "$posts" },
           followersCount: { $size: "$followers" },
           followingCount: { $size: "$following" },
+
+          isFollowing: {
+            $in: [loggedInUserId, "$followers"],
+          },
         },
       },
     ]);
