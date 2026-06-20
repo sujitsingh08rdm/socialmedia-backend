@@ -32,7 +32,23 @@ export interface IPost {
   content: string;
   image?: string;
   owner: mongoose.Types.ObjectId;
-  comments: mongoose.Types.ObjectId;
+  comments: mongoose.Types.ObjectId[];
+  likes: mongoose.Types.ObjectId[];
 }
 
 export interface IPostDocument extends IPost, Document {}
+
+export interface IComment {
+  comment: string;
+  post: mongoose.Types.ObjectId;
+  commentedBy: mongoose.Types.ObjectId;
+}
+
+export interface ICommentDocument extends IComment, Document {}
+
+export interface ILike {
+  post: mongoose.Types.ObjectId;
+  likedBy: mongoose.Types.ObjectId[];
+}
+
+export interface ILikeDocument extends ILike, Document {}

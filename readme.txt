@@ -3,4 +3,5 @@
 3. Create a config for db. for connecting to DB. then export it and import in index.ts. in index.ts when connect to DB is success we  will  run the servers. Create utiliity function for APi REsponse and API Error. then create router/controller for test. and then finally for user. also create a multer middleware for file uploads and then cloudinary util function.
 4. Create a controller for Register and Login users. and Add routing. Now we will create a middleware for authentication.then added logout functionality. then a refrshToken router with ontroller. and now create a controller for getCurrentUser. 
 5. Now work on changeCurrentPassword. then functionality to add Bio. then also image uploads. Then create a router for posts. Creat a post model and then a route and a controller. then create controller for creating post, then getting posts for homepage and then getUserPost. Now create a page for getting profile user data.
-6. Create a controller to follow a user.
+6. Create a controller to follow a user. and also unfollow user. then add it to router. Bow create a controller to updatePost content. the delete post. Added commets controller and routes, for creating commented deleting commenst and getting comments.
+7. then create a ctroller for like/dislike. added a new field in post models for likes, updated post controller for likes and like count.
