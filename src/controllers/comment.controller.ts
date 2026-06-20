@@ -41,13 +41,17 @@ export const createComment = async (
       commentedBy: userId,
     });
 
+    const populatedComment = await Comment.findById(
+      createdComment._id
+    ).populate("commentedBy", "username profileImage");
+
     post.comments.push(createdComment._id);
     await post.save({ validateBeforeSave: false });
 
     return res
       .status(201)
       .json(
-        new ApiResponse(201, createdComment, "Comment created sucessfully")
+        new ApiResponse(201, populatedComment, "Comment created sucessfully")
       );
   } catch (error: unknown) {
     console.log("Error", error);
@@ -64,7 +68,12 @@ export const createComment = async (
 export const getCommentsByPostId = async (req: Request, res: Response) => {
   try {
     const { postId } = req.params;
-    const comments = await Comment.find({ post: postId });
+    // const comments = await Comment.find({ post: postId });
+
+    const comments = await Comment.find({ post: postId }).populate(
+      "commentedBy",
+      "username profileImage"
+    );
 
     res
       .status(200)
