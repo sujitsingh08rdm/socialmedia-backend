@@ -4,6 +4,7 @@ import { uploadToCloudinary } from "../utils/cloudinary.js";
 import { User } from "../models/user.model.js";
 import { Post } from "../models/post.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import sanitizeHtml from "sanitize-html";
 
 export const createPost = async (req: Request, res: Response) => {
   try {
@@ -16,6 +17,15 @@ export const createPost = async (req: Request, res: Response) => {
     }
 
     const { content } = req.body;
+
+    const cleanContent = sanitizeHtml(content, {
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img"]),
+      allowedAttributes: {
+        a: ["href", "target", "rel"],
+        img: ["src", "alt"],
+      },
+    });
+
     const userId = req.user?._id;
 
     const user = await User.findById(userId);
@@ -25,9 +35,13 @@ export const createPost = async (req: Request, res: Response) => {
     }
 
     if (image === undefined) {
-      post = await Post.create({ content, owner: userId });
+      post = await Post.create({ content: cleanContent, owner: userId });
     } else {
-      post = await Post.create({ content, image: image.url, owner: userId });
+      post = await Post.create({
+        content: cleanContent,
+        image: image.url,
+        owner: userId,
+      });
     }
 
     // user.posts.push(post._id);
