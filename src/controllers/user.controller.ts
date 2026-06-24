@@ -390,8 +390,46 @@ export const updateBio = async (req: Request, res: Response) => {
   }
 };
 
+export const deleteBio = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id;
+
+    if (!userId) {
+      throw new ApiError(401, "Unauthorized");
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        $unset: {
+          bio: 1,
+        },
+      },
+      { new: true }
+    ).select("-password -refreshToken");
+
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
+    return res.status(200).json(new ApiResponse(200, null, "Bio removed"));
+  } catch (error: unknown) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
 export const updateProfileImage = async (req: Request, res: Response) => {
   try {
+    console.log(req.body, "<- reqbody");
+    console.log(req.file, "<- req.file");
+
     let profileImagePath = req.file?.path;
 
     if (!profileImagePath) {
@@ -424,6 +462,7 @@ export const updateProfileImage = async (req: Request, res: Response) => {
       const newProfileImage = await uploadToCloudinary(profileImagePath);
       user.profileImage = newProfileImage?.url;
       user.save({ validateBeforeSave: false });
+
       res
         .status(200)
         .json(new ApiResponse(200, null, "profile image Updated sucessfully"));

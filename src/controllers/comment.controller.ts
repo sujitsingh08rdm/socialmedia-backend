@@ -15,7 +15,7 @@ export const createComment = async (
   try {
     const userId = req.user?._id;
     const postId = req.params.postId;
-    const { comment } = req.body;
+    const { comment, parentComment, taggedUser } = req.body;
 
     if (!userId) {
       throw new ApiError(404, "Userid not found");
@@ -39,11 +39,13 @@ export const createComment = async (
       comment,
       post: postId,
       commentedBy: userId,
+      parentComment: parentComment || null,
+      taggedUser: taggedUser || null,
     });
 
-    const populatedComment = await Comment.findById(
-      createdComment._id
-    ).populate("commentedBy", "username profileImage");
+    const populatedComment = await Comment.findById(createdComment._id)
+      .populate("commentedBy", "username profileImage")
+      .populate("taggedUser", "username");
 
     post.comments.push(createdComment._id);
     await post.save({ validateBeforeSave: false });
@@ -70,14 +72,38 @@ export const getCommentsByPostId = async (req: Request, res: Response) => {
     const { postId } = req.params;
     // const comments = await Comment.find({ post: postId });
 
-    const comments = await Comment.find({ post: postId }).populate(
-      "commentedBy",
-      "username profileImage"
+    const rootComments = await Comment.find({
+      post: postId,
+      parentComment: null,
+    })
+      .populate("commentedBy", "username profileImage")
+      .lean();
+
+    const commentsWithReplies = await Promise.all(
+      rootComments.map(async (comment) => {
+        const replies = await Comment.find({
+          parentComment: comment._id,
+        })
+          .populate("commentedBy", "username profileImage")
+          .populate("taggedUser", "username")
+          .lean();
+
+        return {
+          ...comment,
+          replies,
+        };
+      })
     );
 
-    res
+    return res
       .status(200)
-      .json(new ApiResponse(200, comments, "comments fetched sucessfully"));
+      .json(
+        new ApiResponse(
+          200,
+          commentsWithReplies,
+          "comments fetched sucessfully"
+        )
+      );
   } catch (error: unknown) {
     console.log("Error", error);
 

@@ -13,6 +13,7 @@ import {
   getUserProfileData,
   followUser,
   unFollowUser,
+  deleteBio,
 } from "../controllers/user.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
@@ -29,6 +30,8 @@ router.route("/change-password").post(verifyJWT, changeCurrentPassword);
 router.route("/change-password").post(verifyJWT, changeCurrentPassword);
 router.route("/add-bio").post(verifyJWT, addBio);
 router.route("/update-bio").patch(verifyJWT, updateBio);
+router.route("/delete-bio").delete(verifyJWT, deleteBio);
+
 router
   .route("/update-profile-image")
   .patch(verifyJWT, upload.single("profileImage"), updateProfileImage);

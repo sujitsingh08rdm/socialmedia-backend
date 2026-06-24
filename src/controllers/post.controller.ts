@@ -1,9 +1,14 @@
 import { Request, Response } from "express";
 import { ApiError } from "../utils/ApiError.js";
-import { uploadToCloudinary } from "../utils/cloudinary.js";
+import {
+  removeFromCloudinary,
+  uploadToCloudinary,
+} from "../utils/cloudinary.js";
 import { User } from "../models/user.model.js";
 import { Post } from "../models/post.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import sanitizeHtml from "sanitize-html";
+import mongoose from "mongoose";
 
 export const createPost = async (req: Request, res: Response) => {
   try {
@@ -16,6 +21,15 @@ export const createPost = async (req: Request, res: Response) => {
     }
 
     const { content } = req.body;
+
+    const cleanContent = sanitizeHtml(content, {
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img"]),
+      allowedAttributes: {
+        a: ["href", "target", "rel"],
+        img: ["src", "alt"],
+      },
+    });
+
     const userId = req.user?._id;
 
     const user = await User.findById(userId);
@@ -25,9 +39,13 @@ export const createPost = async (req: Request, res: Response) => {
     }
 
     if (image === undefined) {
-      post = await Post.create({ content, owner: userId });
+      post = await Post.create({ content: cleanContent, owner: userId });
     } else {
-      post = await Post.create({ content, image: image.url, owner: userId });
+      post = await Post.create({
+        content: cleanContent,
+        image: image.url,
+        owner: userId,
+      });
     }
 
     // user.posts.push(post._id);
@@ -169,6 +187,52 @@ export const getAllPostsForHome = async (req: Request, res: Response) => {
   }
 };
 
+export const getUserPostById = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id;
+    const { postId } = req.params;
+
+    if (!userId) {
+      throw new ApiError(404, "User id not found");
+    }
+
+    if (!postId) {
+      throw new ApiError(400, "Post id not found");
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(postId as string)) {
+      throw new ApiError(400, "Invalid post id");
+    }
+
+    const post = await Post.findOne({
+      _id: postId,
+      owner: userId,
+    })
+      .populate("owner", "username profileImage")
+      .populate("comments")
+      .populate("likes", "username profileImage");
+
+    if (!post) {
+      throw new ApiError(404, "Post not found or you are not the owner");
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Post fetched successfully",
+      data: post,
+    });
+  } catch (error: unknown) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
 // Post details submited by an user --
 export const getUserPosts = async (req: Request, res: Response) => {
   try {
@@ -295,6 +359,7 @@ export const updatePostContent = async (req: Request, res: Response) => {
     const userId = req.user?._id;
     const { postId } = req.params;
     const { content } = req.body;
+    const imageLocalPath = req.file?.path;
 
     if (!content || content.trim() === "") {
       throw new ApiError(400, "No Content Provided");
@@ -318,8 +383,26 @@ export const updatePostContent = async (req: Request, res: Response) => {
       throw new ApiError(401, "You are not authrizd to perform this action.");
     }
 
-    post.content = content;
-    post.save({ validateBeforeSave: false });
+    if (content?.trim()) {
+      post.content = content.trim();
+    }
+
+    // Replace image
+    if (imageLocalPath) {
+      if (post.image) {
+        await removeFromCloudinary(post.image);
+      }
+
+      const uploadedImage = await uploadToCloudinary(imageLocalPath);
+
+      if (!uploadedImage) {
+        throw new ApiError(500, "Failed to upload image");
+      }
+
+      post.image = uploadedImage.secure_url;
+    }
+
+    await post.save({ validateBeforeSave: false });
 
     return res
       .status(200)
