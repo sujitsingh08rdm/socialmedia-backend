@@ -6,6 +6,7 @@ import {
   getAllPostsForHome,
   getUserPosts,
   updatePostContent,
+  getUserPostById,
 } from "../controllers/post.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 
@@ -16,9 +17,10 @@ router
   .post(verifyJWT, upload.single("image"), createPost);
 router.route("/all-posts").get(verifyJWT, getAllPostsForHome);
 router.route("/user-posts/:username").get(verifyJWT, getUserPosts);
+router.route("/:postId").get(verifyJWT, getUserPostById);
 router
   .route("/update-post-content/:postId")
-  .patch(verifyJWT, updatePostContent);
+  .patch(verifyJWT, upload.single("image"), updatePostContent);
 
 router.route("/delete-post/:postId").delete(verifyJWT, deletePost);
 
