@@ -21,7 +21,7 @@ export const getOrCreateConversation = async (req: Request, res: Response) => {
     const participants = [userId, receiverId].sort();
 
     let conversation = await Conversation.findOne({
-      participants: { $all: participants },
+      participants: { $all: participants, $size: 2 },
     });
 
     if (!conversation) {
@@ -116,10 +116,21 @@ export const sendMessage = async (req: Request, res: Response) => {
 
 export const getMessage = async (req: Request, res: Response) => {
   try {
+    const userId = req.user?._id;
     const { conversationId } = req.params;
 
     if (!conversationId) {
       throw new ApiError(404, "Conversation id not found");
+    }
+
+    const conversation = await Conversation.findById(conversationId);
+
+    if (!conversation) {
+      throw new ApiError(404, "Conversation not found");
+    }
+
+    if (!conversation.participants.some((id: any) => id.equals(userId))) {
+      throw new ApiError(404, "Not Authorized.");
     }
 
     const page = Number(req.query.page) || 1;
@@ -138,6 +149,81 @@ export const getMessage = async (req: Request, res: Response) => {
     res
       .status(200)
       .json(new ApiResponse(200, message, "message fetched Successfully"));
+  } catch (error: unknown) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
+export const markSeen = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id;
+    const { conversationId } = req.params;
+
+    if (!userId) {
+      throw new ApiError(404, "User id not found");
+    }
+
+    if (!conversationId) {
+      throw new ApiError(404, "CoversationId not found");
+    }
+
+    await Message.updateMany(
+      {
+        conversation: conversationId,
+        seenBy: { $ne: userId },
+      },
+      { $addToSet: { seenBy: userId } }
+    );
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "Message marked as seen"));
+  } catch (error: unknown) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
+export const getUserConverstaion = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id;
+
+    if (!userId) {
+      throw new ApiError(404, "User id not found");
+    }
+
+    const conversations = await Conversation.find({
+      participants: userId,
+    })
+      .populate("participants", "username profileImage")
+      .populate({
+        path: "lastMessage",
+        populate: { path: "sender", select: "username profileImage" },
+      })
+      .sort({ updatedAt: -1 });
+
+    res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          conversations,
+          "Conversations Fetched successfully"
+        )
+      );
   } catch (error: unknown) {
     console.log("Error", error);
 
