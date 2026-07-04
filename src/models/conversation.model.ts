@@ -21,7 +21,11 @@ const conversationSchema = new mongoose.Schema<
   { timestamps: true }
 );
 
-conversationSchema.index({ participants: 1 }, { unique: true });
+// conversationSchema.pre("save", function () {
+//   this.participants.sort((a: any, b: any) =>
+//     a.toString().toLocaleCompare(b.toString())
+//   );
+// });
 
 export const Conversation = mongoose.model<IConversationDocument>(
   "Conversation",

@@ -650,3 +650,27 @@ export const unFollowUser = async (req: Request, res: Response) => {
     return res.status(statusCode).json({ success: false, message, errors });
   }
 };
+
+export const getUserFollower = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) {
+      throw new ApiError(404, "Unauthorized");
+    }
+    const user = await User.findById(userId).populate(
+      "followers",
+      "username profileImage"
+    );
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, user, "Followers fetched succesfully"));
+  } catch (error: unknown) {
+    console.log("Error", error);
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
