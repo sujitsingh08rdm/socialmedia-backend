@@ -4,7 +4,7 @@ import { Conversation } from "../models/conversation.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { uploadToCloudinary } from "../utils/cloudinary.js";
 import { Message } from "../models/message.model.js";
-import fs from "fs";
+import { getReceiverSocket, io } from "../index.js";
 
 export const getOrCreateConversation = async (req: Request, res: Response) => {
   try {
@@ -45,12 +45,6 @@ export const getOrCreateConversation = async (req: Request, res: Response) => {
 };
 
 export const sendMessage = async (req: Request, res: Response) => {
-  console.log("req.file:", req.file);
-
-  if (req.file) {
-    console.log("Exists:", fs.existsSync(req.file.path));
-    console.log("Path:", req.file.path);
-  }
   try {
     const senderId = req.user?._id;
     if (!senderId) {
@@ -105,6 +99,21 @@ export const sendMessage = async (req: Request, res: Response) => {
     });
 
     const populated = await message.populate("sender", "username profileImage");
+
+    const receiverId = conversation.participants.find(
+      (id) => !id.equals(senderId)
+    );
+
+    console.log("Sender:", senderId.toString());
+    console.log("Receiver:", receiverId?.toString());
+
+    const receiverSocket = receiverId
+      ? getReceiverSocket(receiverId.toString())
+      : undefined;
+
+    if (receiverSocket) {
+      io.to(receiverSocket).emit("receiveMessage", populated);
+    }
 
     res
       .status(200)
