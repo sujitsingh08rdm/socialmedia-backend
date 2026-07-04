@@ -98,26 +98,49 @@ export const sendMessage = async (req: Request, res: Response) => {
       lastMessage: message._id,
     });
 
+    const updatedConversation = await Conversation.findById(conversationId)
+      .populate("participants", "username profileImage")
+      .populate({
+        path: "lastMessage",
+        populate: {
+          path: "sender",
+          select: "username profileImage",
+        },
+      });
+
     const populated = await message.populate("sender", "username profileImage");
 
     const receiverId = conversation.participants.find(
       (id) => !id.equals(senderId)
     );
 
-    console.log("Sender:", senderId.toString());
-    console.log("Receiver:", receiverId?.toString());
-
     const receiverSocket = receiverId
       ? getReceiverSocket(receiverId.toString())
       : undefined;
 
+    // if (receiverSocket) {
+    //
+    //   io.to(receiverSocket).emit("receiveMessage", populated);
+    // }
+
     if (receiverSocket) {
-      io.to(receiverSocket).emit("receiveMessage", populated);
+      io.to(conversationId).emit("conversationUpdated", {
+        conversation: updatedConversation,
+        message: populated,
+      });
     }
 
-    res
-      .status(200)
-      .json(new ApiResponse(200, populated, "Message sent successfully"));
+    res;
+    res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          conversation: updatedConversation,
+          message: populated,
+        },
+        "Message sent successfully"
+      )
+    );
   } catch (error: unknown) {
     console.log("Error", error);
 
