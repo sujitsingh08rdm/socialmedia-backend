@@ -13,9 +13,7 @@ const router = express.Router();
 
 router.route("/conversation").post(verifyJWT, getOrCreateConversation);
 router.route("/message").post(verifyJWT, upload.single("image"), sendMessage);
-router
-  .route("/messages/:conversationId")
-  .get(verifyJWT, upload.single("image"), getMessage);
+router.route("/messages/:conversationId").get(verifyJWT, getMessage);
 router.route("/seen/:conversationId").patch(verifyJWT, markSeen);
 router.route("/conversations").get(verifyJWT, getUserConverstaion);
 

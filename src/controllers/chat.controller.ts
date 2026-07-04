@@ -4,6 +4,7 @@ import { Conversation } from "../models/conversation.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { uploadToCloudinary } from "../utils/cloudinary.js";
 import { Message } from "../models/message.model.js";
+import fs from "fs";
 
 export const getOrCreateConversation = async (req: Request, res: Response) => {
   try {
@@ -18,7 +19,7 @@ export const getOrCreateConversation = async (req: Request, res: Response) => {
       throw new ApiError(400, "Cannot chat yourself.");
     }
 
-    const participants = [userId, receiverId].sort();
+    const participants = [userId.toString(), receiverId.toString()].sort();
 
     let conversation = await Conversation.findOne({
       participants: { $all: participants, $size: 2 },
@@ -44,6 +45,12 @@ export const getOrCreateConversation = async (req: Request, res: Response) => {
 };
 
 export const sendMessage = async (req: Request, res: Response) => {
+  console.log("req.file:", req.file);
+
+  if (req.file) {
+    console.log("Exists:", fs.existsSync(req.file.path));
+    console.log("Path:", req.file.path);
+  }
   try {
     const senderId = req.user?._id;
     if (!senderId) {
