@@ -15,6 +15,7 @@ import {
   unFollowUser,
   deleteBio,
   getUserFollower,
+  searchUser,
 } from "../controllers/user.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
@@ -44,5 +45,6 @@ router
 router.route("/follow/:username").post(verifyJWT, followUser);
 router.route("/unfollow/:username").post(verifyJWT, unFollowUser);
 router.route("/get-followers").get(verifyJWT, getUserFollower);
+router.route("/search").get(verifyJWT, searchUser);
 
 export default router;

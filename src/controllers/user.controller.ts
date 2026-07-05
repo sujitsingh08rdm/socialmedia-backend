@@ -671,3 +671,40 @@ export const getUserFollower = async (req: Request, res: Response) => {
     return res.status(statusCode).json({ success: false, message, errors });
   }
 };
+
+export const searchUser = async (req: Request, res: Response) => {
+  try {
+    const { query } = req.query;
+
+    if (!query || typeof query !== "string") {
+      throw new ApiError(400, "query is required");
+    }
+
+    const currentUserId = req.user?._id;
+
+    const users = await User.find({
+      $and: [
+        {
+          $or: [
+            { username: { $regex: query, $options: "i" } },
+            { bio: { $regex: query, $options: "i" } },
+          ],
+        },
+        { _id: { $ne: currentUserId } },
+      ],
+    })
+      .select("username bio profileImage")
+      .limit(10);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, users, "Search user fetched successfully"));
+  } catch (error: unknown) {
+    console.log("Error", error);
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
