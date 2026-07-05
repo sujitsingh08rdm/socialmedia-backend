@@ -10,6 +10,8 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import sanitizeHtml from "sanitize-html";
 import mongoose from "mongoose";
 import { io } from "../index.js";
+import { redisClient } from "../config/redis.js";
+import { json } from "node:stream/consumers";
 
 export const createPost = async (req: Request, res: Response) => {
   try {
@@ -71,6 +73,10 @@ export const createPost = async (req: Request, res: Response) => {
 
     io.emit("new_post", formattedPost);
 
+    await redisClient.del("home:posts");
+
+    await redisClient.del(`user/posts:${user.username}`);
+
     return res.json(
       new ApiResponse(200, formattedPost, "post created successfully")
     );
@@ -90,6 +96,22 @@ export const createPost = async (req: Request, res: Response) => {
 export const getAllPostsForHome = async (req: Request, res: Response) => {
   try {
     const userId = req.user?._id;
+    const cacheKey = "home:posts";
+
+    const cachedData = await redisClient.get(cacheKey);
+
+    if (cachedData) {
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            JSON.parse(cachedData),
+            "post fetched from cache"
+          )
+        );
+    }
+
     if (!userId) {
       throw new ApiError(404, "userID not found");
     }
@@ -194,6 +216,8 @@ export const getAllPostsForHome = async (req: Request, res: Response) => {
       { $sort: { createdAt: -1 } },
     ]);
 
+    await redisClient.set(cacheKey, JSON.stringify(posts), { EX: 60 });
+
     return res
       .status(200)
       .json(new ApiResponse(200, posts, "post fetched successfully"));
@@ -269,6 +293,22 @@ export const getUserPosts = async (req: Request, res: Response) => {
       throw new ApiError(404, "userID not found");
     }
 
+    const cacheKey = `user/posts:${username}`;
+
+    const cachedData = await redisClient.get(cacheKey);
+
+    if (cachedData) {
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            JSON.parse(cachedData),
+            "user post fetched successfully from cache"
+          )
+        );
+    }
+
     const posts = await Post.aggregate([
       {
         $lookup: {
@@ -312,7 +352,9 @@ export const getUserPosts = async (req: Request, res: Response) => {
                       $filter: {
                         input: "$commentUsers",
                         as: "user",
-                        cond: { $eq: ["$$user._id", "$$comment.commentedBy"] },
+                        cond: {
+                          $eq: ["$$user._id", "$$comment.commentedBy"],
+                        },
                       },
                     },
                     0,
@@ -360,6 +402,10 @@ export const getUserPosts = async (req: Request, res: Response) => {
       },
       { $sort: { createdAt: -1 } },
     ]);
+
+    await redisClient.set(cacheKey, JSON.stringify(posts), {
+      EX: 60,
+    });
 
     return res
       .status(200)
@@ -426,6 +472,10 @@ export const updatePostContent = async (req: Request, res: Response) => {
 
     await post.save({ validateBeforeSave: false });
 
+    await redisClient.del("home:posts");
+
+    await redisClient.del(`user/posts:${req.user?.username}`);
+
     return res
       .status(200)
       .json(new ApiResponse(200, post, "Post updated sucessfully."));
@@ -462,6 +512,10 @@ export const deletePost = async (req: Request, res: Response) => {
     if (!deletedPost) {
       throw new ApiError(401, "You are not authorized to perform this action");
     }
+
+    await redisClient.del("home:posts");
+
+    await redisClient.del(`user/posts:${req.user?.username}`);
 
     return res
       .status(203)
