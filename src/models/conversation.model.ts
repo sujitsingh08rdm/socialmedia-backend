@@ -17,15 +17,39 @@ const conversationSchema = new mongoose.Schema<
       type: mongoose.Schema.Types.ObjectId,
       ref: "Message",
     },
+    // lastSeen: [
+    //   {
+    //     user: {
+    //       type: mongoose.Schema.Types.ObjectId,
+    //       ref: "User",
+    //       required: true,
+    //     },
+    //   },
+    //   {
+    //     lastSeenMessage: {
+    //       type: mongoose.Schema.Types.ObjectId,
+    //       ref: "Message",
+    //       default: null,
+    //     },
+    //   },
+    // ],
+    lastSeen: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        lastSeenMessage: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Message",
+          default: null,
+        },
+      },
+    ],
   },
   { timestamps: true }
 );
-
-// conversationSchema.pre("save", function () {
-//   this.participants.sort((a: any, b: any) =>
-//     a.toString().toLocaleCompare(b.toString())
-//   );
-// });
 
 export const Conversation = mongoose.model<IConversationDocument>(
   "Conversation",

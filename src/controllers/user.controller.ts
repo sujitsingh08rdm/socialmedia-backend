@@ -479,9 +479,6 @@ export const updateProfileImage = async (req: Request, res: Response) => {
   }
 };
 
-// Create controller to get user profile details" It should container posts, followers and following.
-// Here we will use mongoDB populate.. why we used aggrigate instead of populate
-
 export const getUserProfileData = async (req: Request, res: Response) => {
   try {
     const { username } = req.params;

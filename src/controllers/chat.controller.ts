@@ -4,7 +4,7 @@ import { Conversation } from "../models/conversation.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { uploadToCloudinary } from "../utils/cloudinary.js";
 import { Message } from "../models/message.model.js";
-import fs from "fs";
+import { getReceiverSocket, io } from "../index.js";
 
 export const getOrCreateConversation = async (req: Request, res: Response) => {
   try {
@@ -26,7 +26,19 @@ export const getOrCreateConversation = async (req: Request, res: Response) => {
     });
 
     if (!conversation) {
-      conversation = await Conversation.create({ participants });
+      conversation = await Conversation.create({
+        participants,
+        lastSeen: [
+          {
+            user: userId,
+            lastSeenMessage: null,
+          },
+          {
+            user: receiverId,
+            lastSeenMessage: null,
+          },
+        ],
+      });
     }
 
     res
@@ -45,12 +57,6 @@ export const getOrCreateConversation = async (req: Request, res: Response) => {
 };
 
 export const sendMessage = async (req: Request, res: Response) => {
-  console.log("req.file:", req.file);
-
-  if (req.file) {
-    console.log("Exists:", fs.existsSync(req.file.path));
-    console.log("Path:", req.file.path);
-  }
   try {
     const senderId = req.user?._id;
     if (!senderId) {
@@ -100,15 +106,71 @@ export const sendMessage = async (req: Request, res: Response) => {
       });
     }
 
-    await Conversation.findByIdAndUpdate(conversationId, {
-      lastMessage: message._id,
-    });
+    // await Conversation.findByIdAndUpdate(conversationId, {
+    //   lastMessage: message._id,
+    // });
+
+    conversation.lastMessage = message._id;
+
+    const senderLastSeen = conversation.lastSeen.find((entry) =>
+      entry.user.equals(senderId)
+    );
+
+    if (senderLastSeen) {
+      senderLastSeen.lastSeenMessage = message._id;
+    }
+
+    await conversation.save();
+
+    const updatedConversation = await Conversation.findById(conversationId)
+      .populate("participants", "username profileImage")
+      .populate({
+        path: "lastMessage",
+        populate: {
+          path: "sender",
+          select: "username profileImage",
+        },
+      });
 
     const populated = await message.populate("sender", "username profileImage");
 
-    res
-      .status(200)
-      .json(new ApiResponse(200, populated, "Message sent successfully"));
+    const receiverId = conversation.participants.find(
+      (id) => !id.equals(senderId)
+    );
+
+    const receiverSocket = receiverId
+      ? getReceiverSocket(receiverId.toString())
+      : undefined;
+
+    // if (receiverSocket) {
+    //
+    //   io.to(receiverSocket).emit("receiveMessage", populated);
+    // }
+
+    // if (receiverSocket) {
+    //   io.to(conversationId).emit("conversationUpdated", {
+    //     conversation: updatedConversation,
+    //     message: populated,
+    //   });
+    // }
+
+    if (receiverId) {
+      io.to(receiverId.toString()).emit("conversationUpdated", {
+        conversation: updatedConversation,
+        message: populated,
+      });
+    }
+
+    res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          conversation: updatedConversation,
+          message: populated,
+        },
+        "Message sent successfully"
+      )
+    );
   } catch (error: unknown) {
     console.log("Error", error);
 
@@ -181,13 +243,30 @@ export const markSeen = async (req: Request, res: Response) => {
       throw new ApiError(404, "CoversationId not found");
     }
 
-    await Message.updateMany(
-      {
-        conversation: conversationId,
-        seenBy: { $ne: userId },
-      },
-      { $addToSet: { seenBy: userId } }
-    );
+    const conversation = await Conversation.findById(conversationId);
+
+    if (!conversation) {
+      throw new ApiError(404, "Conversation not found");
+    }
+
+    const lastSeenEntry = conversation?.lastSeen.find((entry) => {
+      console.log("Comparing:", entry.user.toString(), userId.toString());
+
+      return entry.user.equals(userId);
+    });
+
+    console.log("Found entry:", lastSeenEntry);
+
+    if (lastSeenEntry) {
+      lastSeenEntry.lastSeenMessage = conversation.lastMessage;
+    }
+
+    await conversation.save();
+
+    io.to(conversationId).emit("messagesSeen", {
+      conversationId,
+      userId,
+    });
 
     return res
       .status(200)
@@ -204,7 +283,7 @@ export const markSeen = async (req: Request, res: Response) => {
   }
 };
 
-export const getUserConverstaion = async (req: Request, res: Response) => {
+export const getUserConversation = async (req: Request, res: Response) => {
   try {
     const userId = req.user?._id;
 
@@ -222,12 +301,42 @@ export const getUserConverstaion = async (req: Request, res: Response) => {
       })
       .sort({ updatedAt: -1 });
 
+    const conversationsWithUnread = await Promise.all(
+      conversations.map(async (conversation) => {
+        const lastSeen = conversation.lastSeen.find((entry) =>
+          entry.user.equals(userId)
+        );
+
+        let unreadCount = 0;
+
+        if (!lastSeen?.lastSeenMessage) {
+          // User has never opened this chat
+          unreadCount = await Message.countDocuments({
+            conversation: conversation._id,
+            sender: { $ne: userId },
+          });
+        } else {
+          // Count messages after the last seen message
+          unreadCount = await Message.countDocuments({
+            conversation: conversation._id,
+            sender: { $ne: userId },
+            _id: { $gt: lastSeen.lastSeenMessage },
+          });
+        }
+
+        return {
+          ...conversation.toObject(),
+          unreadCount,
+        };
+      })
+    );
+
     res
       .status(200)
       .json(
         new ApiResponse(
           200,
-          conversations,
+          conversationsWithUnread,
           "Conversations Fetched successfully"
         )
       );
