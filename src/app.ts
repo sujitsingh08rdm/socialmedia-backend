@@ -7,6 +7,7 @@ import postRouter from "./routes/post.route.js";
 import commentRouter from "./routes/comment.route.js";
 import likeRouter from "./routes/like.route.js";
 import chatRouter from "./routes/chat.route.js";
+import notificationRouter from "./routes/notification.route.js";
 
 const app = express();
 
@@ -22,5 +23,6 @@ app.use("/api/v1/posts", postRouter);
 app.use("/api/v1/comments", commentRouter);
 app.use("/api/v1/likes", likeRouter);
 app.use("/api/v1/chats", chatRouter);
+app.use("/api/v1/notification", notificationRouter);
 
 export default app;

@@ -3,6 +3,8 @@ import { ApiError } from "../utils/ApiError.js";
 import { Post } from "../models/post.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import mongoose from "mongoose";
+import { Notification } from "../models/notification.model.js";
+import { getReceiverSocket, io } from "../index.js";
 
 export const togglePostLike = async (req: Request, res: Response) => {
   try {
@@ -34,6 +36,32 @@ export const togglePostLike = async (req: Request, res: Response) => {
         );
     } else {
       await Post.findByIdAndUpdate(postId, { $addToSet: { likes: userId } });
+
+      if (post.owner.toString() !== userId.toString()) {
+        const notification = await Notification.create({
+          recipient: post.owner,
+          sender: userId,
+          type: "LIKE_POST",
+          post: post._id,
+        });
+
+        const populatedNotification = await Notification.findById(
+          notification._id
+        )
+          .populate("sender", "username profileImage")
+          .populate("post", "_id");
+
+        const receiverSocket = getReceiverSocket(post.owner.toString());
+
+        console.log("Receiver Socket:", receiverSocket);
+
+        if (receiverSocket) {
+          console.log("📢 Emitting notification");
+
+          io.to(receiverSocket).emit("notification", populatedNotification);
+        }
+      }
+
       return res
         .status(201)
         .json(new ApiResponse(201, null, `You liked post ${post.owner} post`));

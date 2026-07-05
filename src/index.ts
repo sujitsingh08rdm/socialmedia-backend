@@ -26,10 +26,6 @@ export const io = new Server(server, {
 io.on("connection", (socket) => {
   console.log("User connected : ", socket.id);
 
-  /*
-   * User comes online
-   */
-
   socket.on("join", (userId: string) => {
     onlineUsers.set(userId, socket.id);
 
