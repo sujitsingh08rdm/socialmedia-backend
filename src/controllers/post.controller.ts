@@ -9,6 +9,7 @@ import { Post } from "../models/post.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import sanitizeHtml from "sanitize-html";
 import mongoose from "mongoose";
+import { io } from "../index.js";
 
 export const createPost = async (req: Request, res: Response) => {
   try {
@@ -51,7 +52,28 @@ export const createPost = async (req: Request, res: Response) => {
     // user.posts.push(post._id);
     // await user.save({ validateBeforeSave: false });
 
-    return res.json(new ApiResponse(200, post, "post created successfully"));
+    const populatedPost = await Post.findById(post._id).populate(
+      "owner",
+      "username profileImage"
+    );
+
+    if (!populatedPost) {
+      throw new ApiError(500, "Failed to populate post");
+    }
+
+    const formattedPost = {
+      ...populatedPost.toObject(),
+      likes: [],
+      likeCount: 0,
+      commentsCount: 0,
+      comments: [],
+    };
+
+    io.emit("new_post", formattedPost);
+
+    return res.json(
+      new ApiResponse(200, formattedPost, "post created successfully")
+    );
   } catch (error: unknown) {
     console.log("Error", error);
 
