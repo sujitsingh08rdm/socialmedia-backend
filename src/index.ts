@@ -36,6 +36,9 @@ io.on("connection", (socket) => {
     console.log(`${userId} is online`);
     console.log("Online Users:");
     console.log([...onlineUsers.entries()]);
+    socket.join(userId);
+
+    console.log(`${userId} is online`);
 
     io.emit("onlineUsers", [...onlineUsers.keys()]);
   });

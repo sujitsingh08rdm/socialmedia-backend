@@ -53,9 +53,15 @@ export interface ILike {
 
 export interface ILikeDocument extends ILike, Document {}
 
+export interface ILastSeen {
+  user: mongoose.Types.ObjectId;
+  lastSeenMessage: mongoose.Types.ObjectId | null | undefined;
+}
+
 export interface IConversation {
   participants: mongoose.Types.ObjectId[];
   lastMessage?: mongoose.Types.ObjectId;
+  lastSeen: ILastSeen[];
 }
 
 export interface IConversationDocument extends IConversation, Document {}
