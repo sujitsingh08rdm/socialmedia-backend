@@ -31,6 +31,11 @@ export interface AccessTokenPayload extends JwtPayload {
 export interface IPost {
   content: string;
   image?: string;
+  imagePublicId?: string;
+
+  video?: string;
+  videoThumbnail?: string;
+  videoPublicId?: string;
   owner: mongoose.Types.ObjectId;
   comments: mongoose.Types.ObjectId[];
   likes: mongoose.Types.ObjectId[];

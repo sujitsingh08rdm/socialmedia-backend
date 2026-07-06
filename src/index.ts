@@ -8,6 +8,7 @@ import app from "./app.js";
 import connectDB from "./config/db.js";
 import http from "http";
 import { Server } from "socket.io";
+import { connectRedis } from "./config/redis.js";
 
 const port = process.env.PORT || 4001;
 
@@ -25,10 +26,6 @@ export const io = new Server(server, {
 
 io.on("connection", (socket) => {
   console.log("User connected : ", socket.id);
-
-  /*
-   * User comes online
-   */
 
   socket.on("join", (userId: string) => {
     onlineUsers.set(userId, socket.id);
@@ -75,7 +72,8 @@ io.on("connection", (socket) => {
 });
 
 connectDB()
-  .then(() => {
+  .then(async () => {
+    await connectRedis();
     server.listen(port, () => {
       console.log(`Server running on PORT ${port} successfully..`);
     });

@@ -15,6 +15,7 @@ import {
   unFollowUser,
   deleteBio,
   getUserFollower,
+  searchUser,
 } from "../controllers/user.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
@@ -28,7 +29,7 @@ router.route("/refresh-token").post(refreshAccessToken);
 router.route("/logout").get(verifyJWT, logoutUser);
 router.route("/current-user").get(verifyJWT, getCurrentUser);
 router.route("/change-password").post(verifyJWT, changeCurrentPassword);
-router.route("/change-password").post(verifyJWT, changeCurrentPassword);
+
 router.route("/add-bio").post(verifyJWT, addBio);
 router.route("/update-bio").patch(verifyJWT, updateBio);
 router.route("/delete-bio").delete(verifyJWT, deleteBio);
@@ -44,5 +45,6 @@ router
 router.route("/follow/:username").post(verifyJWT, followUser);
 router.route("/unfollow/:username").post(verifyJWT, unFollowUser);
 router.route("/get-followers").get(verifyJWT, getUserFollower);
+router.route("/search").get(verifyJWT, searchUser);
 
 export default router;

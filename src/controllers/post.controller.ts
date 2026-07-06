@@ -1,23 +1,67 @@
 import { Request, Response } from "express";
 import { ApiError } from "../utils/ApiError.js";
-import {
+import cloudinary, {
   removeFromCloudinary,
   uploadToCloudinary,
+  uploadVideoToCloudinary,
 } from "../utils/cloudinary.js";
 import { User } from "../models/user.model.js";
 import { Post } from "../models/post.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import sanitizeHtml from "sanitize-html";
 import mongoose from "mongoose";
+import { io } from "../index.js";
+import { redisClient } from "../config/redis.js";
+import { unFollowUser } from "./user.controller.js";
 
 export const createPost = async (req: Request, res: Response) => {
   try {
-    let imageLocalPath;
     let post;
+
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+    if (files["image"] && files["video"]) {
+      throw new ApiError(
+        400,
+        "You can upload either an image or a video, not both"
+      );
+    }
+
     let image;
-    if (req.file?.path) {
-      imageLocalPath = req.file?.path;
-      image = await uploadToCloudinary(imageLocalPath);
+    let videoHlsUrl: string | undefined;
+    let videoThumbnail: string | undefined;
+
+    let imagePublicId: string | undefined;
+    let videoPublicId: string | undefined;
+
+    if (files["image"]?.[0]?.path) {
+      image = await uploadToCloudinary(files["image"][0].path);
+      imagePublicId = image.public_id;
+    }
+
+    if (files["video"]?.[0]?.path) {
+      const videoResult = await uploadVideoToCloudinary(files["video"][0].path);
+
+      if (!videoResult) {
+        throw new ApiError(500, "Failed upload video to cloudinary");
+      }
+
+      videoPublicId = videoResult.public_id;
+
+      videoHlsUrl =
+        videoResult.eager?.[0]?.secure_url ?? videoResult.secure_url;
+
+      videoThumbnail = cloudinary.url(videoResult.public_id, {
+        resource_type: "video",
+        format: "jpg",
+        transformation: [
+          {
+            start_offset: "2",
+            width: 800,
+            crop: "scale",
+          },
+        ],
+      });
     }
 
     const { content } = req.body;
@@ -38,20 +82,56 @@ export const createPost = async (req: Request, res: Response) => {
       throw new ApiError(401, "user not found");
     }
 
-    if (image === undefined) {
-      post = await Post.create({ content: cleanContent, owner: userId });
-    } else {
-      post = await Post.create({
-        content: cleanContent,
-        image: image.url,
-        owner: userId,
-      });
-    }
+    const createdPost = await Post.create({
+      content: cleanContent,
+      owner: userId,
+      ...(image && { image: image.url }),
+      ...(imagePublicId && { imagePublicId }),
+
+      ...(videoHlsUrl && { video: videoHlsUrl }),
+      ...(videoThumbnail && { videoThumbnail }),
+      ...(videoPublicId && { videoPublicId }),
+    });
+
+    // if (image === undefined) {
+    //   post = await Post.create({ content: cleanContent, owner: userId });
+    // } else {
+    //   post = await Post.create({
+    //     content: cleanContent,
+    //     image: image.url,
+    //     owner: userId,
+    //   });
+    // }
 
     // user.posts.push(post._id);
     // await user.save({ validateBeforeSave: false });
 
-    return res.json(new ApiResponse(200, post, "post created successfully"));
+    const populatedPost = await Post.findById(createdPost._id).populate(
+      "owner",
+      "username profileImage"
+    );
+
+    if (!populatedPost) {
+      throw new ApiError(500, "Failed to populate post");
+    }
+
+    const formattedPost = {
+      ...populatedPost.toObject(),
+      likes: [],
+      likeCount: 0,
+      commentsCount: 0,
+      comments: [],
+    };
+
+    io.emit("new_post", formattedPost);
+
+    await redisClient.del("home:posts");
+
+    await redisClient.del(`user/posts:${user.username}`);
+
+    return res.json(
+      new ApiResponse(200, formattedPost, "post created successfully")
+    );
   } catch (error: unknown) {
     console.log("Error", error);
 
@@ -68,6 +148,22 @@ export const createPost = async (req: Request, res: Response) => {
 export const getAllPostsForHome = async (req: Request, res: Response) => {
   try {
     const userId = req.user?._id;
+    const cacheKey = "home:posts";
+
+    const cachedData = await redisClient.get(cacheKey);
+
+    if (cachedData) {
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            JSON.parse(cachedData),
+            "post fetched from cache"
+          )
+        );
+    }
+
     if (!userId) {
       throw new ApiError(404, "userID not found");
     }
@@ -172,6 +268,8 @@ export const getAllPostsForHome = async (req: Request, res: Response) => {
       { $sort: { createdAt: -1 } },
     ]);
 
+    await redisClient.set(cacheKey, JSON.stringify(posts), { EX: 60 });
+
     return res
       .status(200)
       .json(new ApiResponse(200, posts, "post fetched successfully"));
@@ -247,6 +345,22 @@ export const getUserPosts = async (req: Request, res: Response) => {
       throw new ApiError(404, "userID not found");
     }
 
+    const cacheKey = `user/posts:${username}`;
+
+    const cachedData = await redisClient.get(cacheKey);
+
+    if (cachedData) {
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            JSON.parse(cachedData),
+            "user post fetched successfully from cache"
+          )
+        );
+    }
+
     const posts = await Post.aggregate([
       {
         $lookup: {
@@ -290,7 +404,9 @@ export const getUserPosts = async (req: Request, res: Response) => {
                       $filter: {
                         input: "$commentUsers",
                         as: "user",
-                        cond: { $eq: ["$$user._id", "$$comment.commentedBy"] },
+                        cond: {
+                          $eq: ["$$user._id", "$$comment.commentedBy"],
+                        },
                       },
                     },
                     0,
@@ -319,6 +435,8 @@ export const getUserPosts = async (req: Request, res: Response) => {
         $project: {
           content: 1,
           image: 1,
+          video: 1,
+          videoThumbnail: 1,
           createdAt: 1,
           commentCount: 1,
           owner: {
@@ -338,6 +456,10 @@ export const getUserPosts = async (req: Request, res: Response) => {
       },
       { $sort: { createdAt: -1 } },
     ]);
+
+    await redisClient.set(cacheKey, JSON.stringify(posts), {
+      EX: 60,
+    });
 
     return res
       .status(200)
@@ -404,6 +526,10 @@ export const updatePostContent = async (req: Request, res: Response) => {
 
     await post.save({ validateBeforeSave: false });
 
+    await redisClient.del("home:posts");
+
+    await redisClient.del(`user/posts:${req.user?.username}`);
+
     return res
       .status(200)
       .json(new ApiResponse(200, post, "Post updated sucessfully."));
@@ -432,6 +558,20 @@ export const deletePost = async (req: Request, res: Response) => {
       throw new ApiError(404, "Suer id not Found");
     }
 
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      throw new ApiError(404, "Post Not found");
+    }
+
+    if (post.videoPublicId) {
+      await removeFromCloudinary(post.videoPublicId, "video");
+    }
+
+    if (post.imagePublicId) {
+      await removeFromCloudinary(post.imagePublicId, "image");
+    }
+
     const deletedPost = await Post.findByIdAndDelete({
       _id: postId,
       owner: userId,
@@ -440,6 +580,10 @@ export const deletePost = async (req: Request, res: Response) => {
     if (!deletedPost) {
       throw new ApiError(401, "You are not authorized to perform this action");
     }
+
+    await redisClient.del("home:posts");
+
+    await redisClient.del(`user/posts:${req.user?.username}`);
 
     return res
       .status(203)

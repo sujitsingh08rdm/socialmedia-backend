@@ -9,7 +9,6 @@ import { User } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 import { AccessTokenPayload } from "../types/index.js";
 import fs from "fs";
-import mongoose from "mongoose";
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
@@ -259,7 +258,7 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
     const newAccessToken = user.generateAccessToken();
 
     user.refreshToken = newRefreshToken;
-    user.save({ validateBeforeSave: false });
+    await user.save({ validateBeforeSave: false });
 
     const cookieOptions = {
       httpOnly: true,
@@ -311,7 +310,7 @@ export const changeCurrentPassword = async (req: Request, res: Response) => {
 
     user.password = newPassword;
 
-    user.save({ validateBeforeSave: false });
+    await user.save({ validateBeforeSave: false });
 
     return res
       .status(200)
@@ -344,7 +343,8 @@ export const addBio = async (req: Request, res: Response) => {
     }
 
     user.bio = bio.trim();
-    user.save({ validateBeforeSave: false });
+
+    await user.save({ validateBeforeSave: false });
 
     return res
       .status(201)
@@ -452,7 +452,9 @@ export const updateProfileImage = async (req: Request, res: Response) => {
     if (!user.profileImage) {
       const profileImage = await uploadToCloudinary(profileImagePath);
       user.profileImage = profileImage?.url;
-      user.save({ validateBeforeSave: false });
+
+      await user.save({ validateBeforeSave: false });
+
       res
         .status(200)
         .json(new ApiResponse(200, null, "profile image added sucessfully"));
@@ -461,7 +463,8 @@ export const updateProfileImage = async (req: Request, res: Response) => {
       await removeFromCloudinary(oldProfileImageUrl);
       const newProfileImage = await uploadToCloudinary(profileImagePath);
       user.profileImage = newProfileImage?.url;
-      user.save({ validateBeforeSave: false });
+
+      await user.save({ validateBeforeSave: false });
 
       res
         .status(200)
@@ -662,6 +665,43 @@ export const getUserFollower = async (req: Request, res: Response) => {
     return res
       .status(200)
       .json(new ApiResponse(200, user, "Followers fetched succesfully"));
+  } catch (error: unknown) {
+    console.log("Error", error);
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
+export const searchUser = async (req: Request, res: Response) => {
+  try {
+    const { query } = req.query;
+
+    if (!query || typeof query !== "string") {
+      throw new ApiError(400, "query is required");
+    }
+
+    const currentUserId = req.user?._id;
+
+    const users = await User.find({
+      $and: [
+        {
+          $or: [
+            { username: { $regex: query, $options: "i" } },
+            { bio: { $regex: query, $options: "i" } },
+          ],
+        },
+        { _id: { $ne: currentUserId } },
+      ],
+    })
+      .select("username bio profileImage")
+      .limit(10);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, users, "Search user fetched successfully"));
   } catch (error: unknown) {
     console.log("Error", error);
     const statusCode = error instanceof ApiError ? error.statusCode : 500;
