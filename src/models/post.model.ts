@@ -10,6 +10,14 @@ const postSchema = new mongoose.Schema<IPostDocument, Model<IPostDocument>>(
     image: {
       type: String,
     },
+    imagePublicId: { type: String },
+
+    video: {
+      type: String,
+    },
+    videoThumbnail: { type: String },
+    videoPublicId: { type: String },
+
     owner: {
       type: mongoose.Types.ObjectId,
       ref: "User",

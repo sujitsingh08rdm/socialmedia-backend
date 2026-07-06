@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import { ApiError } from "../utils/ApiError.js";
-import {
+import cloudinary, {
   removeFromCloudinary,
   uploadToCloudinary,
+  uploadVideoToCloudinary,
 } from "../utils/cloudinary.js";
 import { User } from "../models/user.model.js";
 import { Post } from "../models/post.model.js";
@@ -11,16 +12,56 @@ import sanitizeHtml from "sanitize-html";
 import mongoose from "mongoose";
 import { io } from "../index.js";
 import { redisClient } from "../config/redis.js";
-import { json } from "node:stream/consumers";
+import { unFollowUser } from "./user.controller.js";
 
 export const createPost = async (req: Request, res: Response) => {
   try {
-    let imageLocalPath;
     let post;
+
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+    if (files["image"] && files["video"]) {
+      throw new ApiError(
+        400,
+        "You can upload either an image or a video, not both"
+      );
+    }
+
     let image;
-    if (req.file?.path) {
-      imageLocalPath = req.file?.path;
-      image = await uploadToCloudinary(imageLocalPath);
+    let videoHlsUrl: string | undefined;
+    let videoThumbnail: string | undefined;
+
+    let imagePublicId: string | undefined;
+    let videoPublicId: string | undefined;
+
+    if (files["image"]?.[0]?.path) {
+      image = await uploadToCloudinary(files["image"][0].path);
+      imagePublicId = image.public_id;
+    }
+
+    if (files["video"]?.[0]?.path) {
+      const videoResult = await uploadVideoToCloudinary(files["video"][0].path);
+
+      if (!videoResult) {
+        throw new ApiError(500, "Failed upload video to cloudinary");
+      }
+
+      videoPublicId = videoResult.public_id;
+
+      videoHlsUrl =
+        videoResult.eager?.[0]?.secure_url ?? videoResult.secure_url;
+
+      videoThumbnail = cloudinary.url(videoResult.public_id, {
+        resource_type: "video",
+        format: "jpg",
+        transformation: [
+          {
+            start_offset: "2",
+            width: 800,
+            crop: "scale",
+          },
+        ],
+      });
     }
 
     const { content } = req.body;
@@ -41,20 +82,31 @@ export const createPost = async (req: Request, res: Response) => {
       throw new ApiError(401, "user not found");
     }
 
-    if (image === undefined) {
-      post = await Post.create({ content: cleanContent, owner: userId });
-    } else {
-      post = await Post.create({
-        content: cleanContent,
-        image: image.url,
-        owner: userId,
-      });
-    }
+    const createdPost = await Post.create({
+      content: cleanContent,
+      owner: userId,
+      ...(image && { image: image.url }),
+      ...(imagePublicId && { imagePublicId }),
+
+      ...(videoHlsUrl && { video: videoHlsUrl }),
+      ...(videoThumbnail && { videoThumbnail }),
+      ...(videoPublicId && { videoPublicId }),
+    });
+
+    // if (image === undefined) {
+    //   post = await Post.create({ content: cleanContent, owner: userId });
+    // } else {
+    //   post = await Post.create({
+    //     content: cleanContent,
+    //     image: image.url,
+    //     owner: userId,
+    //   });
+    // }
 
     // user.posts.push(post._id);
     // await user.save({ validateBeforeSave: false });
 
-    const populatedPost = await Post.findById(post._id).populate(
+    const populatedPost = await Post.findById(createdPost._id).populate(
       "owner",
       "username profileImage"
     );
@@ -383,6 +435,8 @@ export const getUserPosts = async (req: Request, res: Response) => {
         $project: {
           content: 1,
           image: 1,
+          video: 1,
+          videoThumbnail: 1,
           createdAt: 1,
           commentCount: 1,
           owner: {
@@ -502,6 +556,20 @@ export const deletePost = async (req: Request, res: Response) => {
 
     if (!userId) {
       throw new ApiError(404, "Suer id not Found");
+    }
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      throw new ApiError(404, "Post Not found");
+    }
+
+    if (post.videoPublicId) {
+      await removeFromCloudinary(post.videoPublicId, "video");
+    }
+
+    if (post.imagePublicId) {
+      await removeFromCloudinary(post.imagePublicId, "image");
     }
 
     const deletedPost = await Post.findByIdAndDelete({

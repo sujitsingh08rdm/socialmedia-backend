@@ -1,6 +1,7 @@
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 import dotenv from "dotenv";
+import { format } from "path";
 
 dotenv.config({ path: "./.env" });
 
@@ -24,15 +25,39 @@ export const uploadToCloudinary = async (localFilePath: string) => {
   }
 };
 
-export const removeFromCloudinary = async (imageUrl: String) => {
+export const uploadVideoToCloudinary = async (localFilePath: string) => {
   try {
-    const imageUrlArr = imageUrl.split("/");
-    const imageNameWithExtention = imageUrlArr[imageUrlArr.length - 1];
-    const imageNameArr = imageNameWithExtention.split(".");
-    const imageName = imageNameArr[0];
+    const response = await cloudinary.uploader.upload(localFilePath, {
+      resource_type: "video",
+      eager: [{ streaming_profile: "full_hd", format: "m3u8" }],
+      eager_async: false,
+    });
 
-    await cloudinary.uploader.destroy(imageName);
+    fs.unlinkSync(localFilePath);
+
+    return response;
   } catch (error) {
     console.log("Cloudinary error : ", error);
+  } finally {
+    if (fs.existsSync(localFilePath)) {
+      fs.unlinkSync(localFilePath);
+    }
   }
 };
+
+export const removeFromCloudinary = async (
+  publicId: string,
+  resourceType: "image" | "video" = "image"
+) => {
+  try {
+    const result = await cloudinary.uploader.destroy(publicId, {
+      resource_type: resourceType,
+    });
+
+    return result;
+  } catch (error) {
+    console.log("Cloudinary error:", error);
+  }
+};
+
+export default cloudinary;
