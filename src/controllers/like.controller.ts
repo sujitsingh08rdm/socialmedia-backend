@@ -5,6 +5,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import mongoose from "mongoose";
 import { Notification } from "../models/notification.model.js";
 import { getReceiverSocket, io } from "../index.js";
+import { invalidatePostCache } from "../utils/cache.js";
 
 export const togglePostLike = async (req: Request, res: Response) => {
   try {
@@ -29,6 +30,7 @@ export const togglePostLike = async (req: Request, res: Response) => {
 
     if (isLiked) {
       await Post.findByIdAndUpdate(postId, { $pull: { likes: userId } });
+      await invalidatePostCache(post.owner.toString());
       return res
         .status(201)
         .json(

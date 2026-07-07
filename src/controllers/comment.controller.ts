@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { Post } from "../models/post.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Comment } from "../models/comment.model.js";
+import { invalidatePostCache } from "../utils/cache.js";
 
 interface CreateCommentParams {
   postId: string;
@@ -49,6 +50,7 @@ export const createComment = async (
 
     post.comments.push(createdComment._id);
     await post.save({ validateBeforeSave: false });
+    await invalidatePostCache(post.owner.toString());
 
     return res
       .status(201)
@@ -158,6 +160,8 @@ export const deleteComment = async (req: Request, res: Response) => {
     await Post.findByIdAndUpdate(postId, {
       $pull: { comments: commentId },
     });
+
+    await invalidatePostCache(post.owner.toString());
 
     return res
       .status(200)
