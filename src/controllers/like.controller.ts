@@ -38,6 +38,7 @@ export const togglePostLike = async (req: Request, res: Response) => {
         );
     } else {
       await Post.findByIdAndUpdate(postId, { $addToSet: { likes: userId } });
+      await invalidatePostCache(post.owner.toString());
 
       if (post.owner.toString() !== userId.toString()) {
         const notification = await Notification.create({
