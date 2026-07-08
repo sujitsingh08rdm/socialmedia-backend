@@ -304,7 +304,7 @@ export const getUserPostById = async (req: Request, res: Response) => {
 
     const post = await Post.findOne({
       _id: postId,
-      owner: userId,
+      // owner: userId,
     })
       .populate("owner", "username profileImage")
       .populate("comments")
