@@ -36,7 +36,7 @@ export const createPost = async (req: Request, res: Response) => {
 
     if (files["image"]?.[0]?.path) {
       image = await uploadToCloudinary(files["image"][0].path);
-      imagePublicId = image.public_id;
+      imagePublicId = image?.public_id;
     }
 
     if (files["video"]?.[0]?.path) {
@@ -481,7 +481,18 @@ export const updatePostContent = async (req: Request, res: Response) => {
     const userId = req.user?._id;
     const { postId } = req.params;
     const { content } = req.body;
-    const imageLocalPath = req.file?.path;
+    const files = req.files as {
+      [fieldname: string]: Express.Multer.File[];
+    };
+    const imageLocalPath = files?.image?.[0]?.path;
+    const videoLocalPath = files?.video?.[0]?.path;
+
+    if (files["image"] && files["video"]) {
+      throw new ApiError(
+        400,
+        "You can upload either an image or a video, not both"
+      );
+    }
 
     if (!content || content.trim() === "") {
       throw new ApiError(400, "No Content Provided");
@@ -510,9 +521,29 @@ export const updatePostContent = async (req: Request, res: Response) => {
     }
 
     // Replace image
+    // if (imageLocalPath) {
+    //   if (post.image) {
+    //     await removeFromCloudinary(post.image);
+    //   }
+
+    //   const uploadedImage = await uploadToCloudinary(imageLocalPath);
+
+    //   if (!uploadedImage) {
+    //     throw new ApiError(500, "Failed to upload image");
+    //   }
+
+    //   post.image = uploadedImage.secure_url;
+    // }
+
     if (imageLocalPath) {
-      if (post.image) {
-        await removeFromCloudinary(post.image);
+      // remove old image
+      if (post.imagePublicId) {
+        await removeFromCloudinary(post.imagePublicId, "image");
+      }
+
+      // remove old video
+      if (post.videoPublicId) {
+        await removeFromCloudinary(post.videoPublicId, "video");
       }
 
       const uploadedImage = await uploadToCloudinary(imageLocalPath);
@@ -522,6 +553,49 @@ export const updatePostContent = async (req: Request, res: Response) => {
       }
 
       post.image = uploadedImage.secure_url;
+      post.imagePublicId = uploadedImage.public_id;
+
+      // clear video fields
+      post.video = undefined;
+      post.videoThumbnail = undefined;
+      post.videoPublicId = undefined;
+    }
+
+    if (videoLocalPath) {
+      if (post.imagePublicId) {
+        await removeFromCloudinary(post.imagePublicId, "image");
+      }
+
+      if (post.videoPublicId) {
+        await removeFromCloudinary(post.videoPublicId, "video");
+      }
+
+      const uploadedVideo = await uploadVideoToCloudinary(videoLocalPath);
+
+      if (!uploadedVideo) {
+        throw new ApiError(500, "Failed to upload video");
+      }
+
+      post.videoPublicId = uploadedVideo.public_id;
+
+      post.video =
+        uploadedVideo.eager?.[0]?.secure_url ?? uploadedVideo.secure_url;
+
+      post.videoThumbnail = cloudinary.url(uploadedVideo.public_id, {
+        resource_type: "video",
+        format: "jpg",
+        transformation: [
+          {
+            start_offset: "2",
+            width: 800,
+            crop: "scale",
+          },
+        ],
+      });
+
+      // clear image
+      post.image = undefined;
+      post.imagePublicId = undefined;
     }
 
     await post.save({ validateBeforeSave: false });
