@@ -36,7 +36,7 @@ export const createPost = async (req: Request, res: Response) => {
 
     if (files["image"]?.[0]?.path) {
       image = await uploadToCloudinary(files["image"][0].path);
-      imagePublicId = image.public_id;
+      imagePublicId = image?.public_id;
     }
 
     if (files["video"]?.[0]?.path) {
