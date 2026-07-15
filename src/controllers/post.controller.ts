@@ -285,6 +285,146 @@ export const getAllPostsForHome = async (req: Request, res: Response) => {
   }
 };
 
+export const getAllPostsForMain = async (req: Request, res: Response) => {
+  try {
+    // const userId = req.user?._id;
+    const cacheKey = "home:posts";
+
+    const cachedData = await redisClient.get(cacheKey);
+
+    if (cachedData) {
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            JSON.parse(cachedData),
+            "post fetched from cache"
+          )
+        );
+    }
+
+    // if (!userId) {
+    //   throw new ApiError(404, "userID not found");
+    // }
+
+    const posts = await Post.aggregate([
+      {
+        $lookup: {
+          from: "users",
+          localField: "owner",
+          foreignField: "_id",
+          as: "owner",
+        },
+      },
+      {
+        $unwind: {
+          path: "$owner",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          "owner.password": 0,
+          "owner.refreshToken": 0,
+          "owner._v": 0,
+        },
+      },
+      // {
+      //   $lookup: {
+      //     from: "comments",
+      //     localField: "comments",
+      //     foreignField: "_id",
+      //     as: "comments",
+      //   },
+      // },
+      // This is bug fix for above, we uncomment it lateer
+      {
+        $lookup: {
+          from: "comments",
+          localField: "_id",
+          foreignField: "post",
+          as: "comments",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "comments.commentedBy",
+          foreignField: "_id",
+          as: "commentUsers",
+        },
+      },
+      {
+        $addFields: {
+          comments: {
+            $map: {
+              input: "$comments",
+              as: "comment",
+              in: {
+                _id: "$$comment._id",
+                comment: "$$comment.comment",
+                createdAt: "$$comment.createdAt",
+                commentedBy: {
+                  $let: {
+                    vars: {
+                      user: {
+                        $arrayElemAt: [
+                          {
+                            $filter: {
+                              input: "$commentUsers",
+                              as: "user",
+                              cond: {
+                                $eq: ["$$user._id", "$$comment.commentedBy"],
+                              },
+                            },
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                    in: {
+                      _id: "$$user._id",
+                      username: "$$user.username",
+                      profileImage: "$$user.profileImage",
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      { $addFields: { commentCount: { $size: "$comments" } } },
+      {
+        $addFields: {
+          likeCount: { $size: { $ifNull: ["$likes", []] } },
+          // isLiked: {
+          //   $in: [userId, "$likes"],
+          // },
+        },
+      },
+      { $project: { commentUsers: 0, _v: 0 } },
+      { $sort: { createdAt: -1 } },
+    ]);
+
+    await redisClient.set(cacheKey, JSON.stringify(posts), { EX: 60 });
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, posts, "post fetched successfully"));
+  } catch (error: unknown) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
 export const getUserPostById = async (req: Request, res: Response) => {
   try {
     const userId = req.user?._id;
@@ -304,7 +444,7 @@ export const getUserPostById = async (req: Request, res: Response) => {
 
     const post = await Post.findOne({
       _id: postId,
-      // owner: userId,
+      owner: userId,
     })
       .populate("owner", "username profileImage")
       .populate("comments")
