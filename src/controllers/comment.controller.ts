@@ -118,6 +118,58 @@ export const getCommentsByPostId = async (req: Request, res: Response) => {
   }
 };
 
+export const getMainPageCommentsByPostId = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const { postId } = req.params;
+    // const comments = await Comment.find({ post: postId });
+
+    const rootComments = await Comment.find({
+      post: postId,
+      parentComment: null,
+    })
+      .populate("commentedBy", "username profileImage")
+      .lean();
+
+    const commentsWithReplies = await Promise.all(
+      rootComments.map(async (comment) => {
+        const replies = await Comment.find({
+          parentComment: comment._id,
+        })
+          .populate("commentedBy", "username profileImage")
+          .populate("taggedUser", "username")
+          .lean();
+
+        return {
+          ...comment,
+          replies,
+        };
+      })
+    );
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          commentsWithReplies,
+          "comments fetched sucessfully"
+        )
+      );
+  } catch (error: unknown) {
+    console.log("Error", error);
+
+    const statusCode = error instanceof ApiError ? error.statusCode : 500;
+    const message =
+      error instanceof ApiError ? error.message : "Internal Server Error";
+    const errors = error instanceof ApiError ? error.errors : [];
+
+    return res.status(statusCode).json({ success: false, message, errors });
+  }
+};
+
 export const deleteComment = async (req: Request, res: Response) => {
   try {
     const userId = req.user?._id;
