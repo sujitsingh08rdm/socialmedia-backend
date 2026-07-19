@@ -79,9 +79,18 @@ export const registerUser = async (req: Request, res: Response) => {
       "-password -refreshToken"
     );
 
+    // const cookiesOptions = {
+    //   httpOnly: true,
+    //   secure: true,
+    // };
+
     const cookiesOptions = {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite:
+        process.env.NODE_ENV === "production"
+          ? ("none" as const)
+          : ("lax" as const),
     };
 
     return res
@@ -137,9 +146,18 @@ export const loginUser = async (req: Request, res: Response) => {
       "-password -refreshToken"
     );
 
+    // const cookiesOptions = {
+    //   httpOnly: true,
+    //   secure: true,
+    // };
+
     const cookiesOptions = {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite:
+        process.env.NODE_ENV === "production"
+          ? ("none" as const)
+          : ("lax" as const),
     };
 
     return res
@@ -260,15 +278,24 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
     user.refreshToken = newRefreshToken;
     await user.save({ validateBeforeSave: false });
 
-    const cookieOptions = {
+    // const cookieOptions = {
+    //   httpOnly: true,
+    //   secure: true,
+    // };
+
+    const cookiesOptions = {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite:
+        process.env.NODE_ENV === "production"
+          ? ("none" as const)
+          : ("lax" as const),
     };
 
     return res
       .status(201)
-      .cookie("accessToken", newAccessToken, cookieOptions)
-      .cookie("refreshToken", newRefreshToken, cookieOptions)
+      .cookie("accessToken", newAccessToken, cookiesOptions)
+      .cookie("refreshToken", newRefreshToken, cookiesOptions)
       .json(
         new ApiResponse(
           201,

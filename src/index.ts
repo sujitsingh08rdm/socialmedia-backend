@@ -20,8 +20,16 @@ export const getReceiverSocket = (userId: string) => {
   return onlineUsers.get(userId);
 };
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  process.env.FRONTEND_URL,
+].filter((origin): origin is string => Boolean(origin));
+
 export const io = new Server(server, {
-  cors: { origin: process.env.CORS_ORIGIN, credentials: true },
+  cors: {
+    origin: allowedOrigins,
+    credentials: true,
+  },
 });
 
 io.on("connection", (socket) => {

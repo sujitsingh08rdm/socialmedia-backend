@@ -13,7 +13,17 @@ const app = express();
 
 app.use(express.json()); // parse the json req body
 app.use(express.urlencoded({ extended: true })); //express.urlencoded() is middleware that parses URL-encoded form data sent from HTML forms.
-app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }));
+const allowedOrigins = [
+  "http://localhost:5173",
+  process.env.FRONTEND_URL,
+].filter((origin): origin is string => Boolean(origin));
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  })
+);
 app.use(cookieParser());
 
 //routes
