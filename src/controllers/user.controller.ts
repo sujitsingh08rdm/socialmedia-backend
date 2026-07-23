@@ -9,6 +9,7 @@ import { User } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 import { AccessTokenPayload } from "../types/index.js";
 import fs from "fs";
+import { cookieOptions } from "../utils/cookie-option.js";
 
 export const registerUser = async (req: Request, res: Response) => {
   try {
@@ -84,19 +85,19 @@ export const registerUser = async (req: Request, res: Response) => {
     //   secure: true,
     // };
 
-    const cookiesOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite:
-        process.env.NODE_ENV === "production"
-          ? ("none" as const)
-          : ("lax" as const),
-    };
+    // const cookiesOptions = {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === "production",
+    //   sameSite:
+    //     process.env.NODE_ENV === "production"
+    //       ? ("none" as const)
+    //       : ("lax" as const),
+    // };
 
     return res
       .status(201)
-      .cookie("accessToken", accessToken, cookiesOptions)
-      .cookie("refreshToken", refreshToken, cookiesOptions)
+      .cookie("accessToken", accessToken, cookieOptions)
+      .cookie("refreshToken", refreshToken, cookieOptions)
       .json(
         new ApiResponse(
           201,
@@ -151,19 +152,19 @@ export const loginUser = async (req: Request, res: Response) => {
     //   secure: true,
     // };
 
-    const cookiesOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite:
-        process.env.NODE_ENV === "production"
-          ? ("none" as const)
-          : ("lax" as const),
-    };
+    // const cookiesOptions = {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === "production",
+    //   sameSite:
+    //     process.env.NODE_ENV === "production"
+    //       ? ("none" as const)
+    //       : ("lax" as const),
+    // };
 
     return res
       .status(200)
-      .cookie("accessToken", accessToken, cookiesOptions)
-      .cookie("refreshToken", refreshToken, cookiesOptions)
+      .cookie("accessToken", accessToken, cookieOptions)
+      .cookie("refreshToken", refreshToken, cookieOptions)
       .json(
         new ApiResponse(
           200,
@@ -205,10 +206,10 @@ export const logoutUser = async (req: Request, res: Response) => {
       }
     );
 
-    const cookieOptions = {
-      httpOnly: true,
-      secure: true,
-    };
+    // const cookieOptions = {
+    //   httpOnly: true,
+    //   secure: true,
+    // };
 
     return res
       .status(200)
@@ -283,19 +284,19 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
     //   secure: true,
     // };
 
-    const cookiesOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite:
-        process.env.NODE_ENV === "production"
-          ? ("none" as const)
-          : ("lax" as const),
-    };
+    // const cookiesOptions = {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === "production",
+    //   sameSite:
+    //     process.env.NODE_ENV === "production"
+    //       ? ("none" as const)
+    //       : ("lax" as const),
+    // };
 
     return res
       .status(201)
-      .cookie("accessToken", newAccessToken, cookiesOptions)
-      .cookie("refreshToken", newRefreshToken, cookiesOptions)
+      .cookie("accessToken", newAccessToken, cookieOptions)
+      .cookie("refreshToken", newRefreshToken, cookieOptions)
       .json(
         new ApiResponse(
           201,
